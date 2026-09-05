@@ -1,0 +1,2494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fantasy Draft Board</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #252836;
+      --surface3: #2e3148;
+      --border: #343759;
+      --text: #e2e5f0;
+      --muted: #6b7280;
+      --dim: #4b5563;
+      --accent: #f59e0b;
+      --qb: #ef4444;
+      --rb: #22c55e;
+      --wr: #3b82f6;
+      --te: #a855f7;
+      --k: #eab308;
+      --def: #64748b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      font-size: 14px;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sb-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .sb-header h2 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .league-select {
+      width: 100%;
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 6px 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .league-select:hover { border-color: var(--muted); }
+
+    .roster-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px;
+    }
+
+    .roster-section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--dim);
+      padding: 8px 4px 4px;
+    }
+
+    .roster-slot {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 5px;
+      margin-bottom: 2px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      min-height: 36px;
+    }
+
+    .roster-slot.filled {
+      border-color: rgba(255,255,255,0.06);
+    }
+
+    .slot-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      width: 44px;
+      flex-shrink: 0;
+      text-transform: uppercase;
+    }
+
+    .slot-content {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .slot-name {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .slot-empty {
+      color: var(--dim);
+      font-size: 12px;
+    }
+
+    .slot-remove {
+      background: none;
+      border: none;
+      color: var(--dim);
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-size: 11px;
+      line-height: 1;
+      opacity: 0;
+      transition: opacity 0.1s, color 0.1s;
+      flex-shrink: 0;
+    }
+
+    .roster-slot:hover .slot-remove { opacity: 1; }
+    .slot-remove:hover { color: #ef4444; background: rgba(239,68,68,0.1); }
+
+    .sb-footer {
+      padding: 10px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .pick-count-num {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+    }
+
+    /* ── MAIN ── */
+    #main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── TOOLBAR ── */
+    .toolbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+
+    .toolbar-sep {
+      width: 1px;
+      height: 22px;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background 0.12s, border-color 0.12s;
+      white-space: nowrap;
+      line-height: 1.4;
+      font-family: inherit;
+    }
+
+    .btn:hover { background: var(--surface3); border-color: var(--muted); }
+
+    /* Export overlay. Read-only view of draft state — no action inside it
+       mutates picks, so it is safe to open mid-draft. */
+    .export-back {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+    }
+
+    .export-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: min(720px, 100%);
+      max-height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 16px;
+    }
+
+    .export-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-weight: 600;
+    }
+
+    .export-box textarea {
+      flex: 1;
+      min-height: 320px;
+      resize: vertical;
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+      white-space: pre;
+    }
+
+    .export-actions { display: flex; gap: 8px; align-items: center; }
+    .export-note { color: var(--muted); font-size: 12px; }
+
+    /* Sleeper sync panel. Shares the export overlay's frame; adds a small
+       form for connecting and a status readout once connected. */
+    .sleeper-pill {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      white-space: nowrap;
+      align-self: center;
+    }
+    .sleeper-pill.live { color: #22c55e; border-color: #22c55e55; }
+    .sleeper-pill.err  { color: #ef4444; border-color: #ef444455; }
+
+    .sleeper-box { gap: 8px; }
+    .sleeper-box .export-actions { flex-wrap: wrap; margin-top: 4px; }
+
+    .sl-grid {
+      display: grid;
+      grid-template-columns: max-content 1fr;
+      gap: 4px 14px;
+      font-size: 13px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 10px 12px;
+    }
+    .sl-grid > span:nth-child(odd) { color: var(--muted); }
+
+    .sl-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .sl-row { display: flex; gap: 8px; }
+    .sl-input {
+      flex: 1;
+      min-width: 0;
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 7px 9px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .sl-input:focus { outline: none; border-color: var(--accent); }
+
+    .sl-note { font-size: 12px; color: var(--text); line-height: 1.5; }
+    .sl-dim  { color: var(--muted); }
+    .sl-err  { color: #ef4444; font-size: 12px; }
+
+    .sl-list {
+      font-size: 12px;
+      border: 1px solid var(--border);
+      border-left-width: 3px;
+      border-radius: 5px;
+      padding: 8px 10px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .sl-list.warn { border-left-color: var(--accent); }
+    .sl-list ul { margin: 4px 0 0; padding-left: 18px; color: var(--muted); }
+    .sl-list li { margin: 2px 0; }
+
+    .btn-upload {
+      background: var(--accent);
+      color: #111;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+    .btn-upload:hover { background: #d97706; border-color: #d97706; }
+
+    .csv-info {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .csv-info.ok { color: #22c55e; }
+    .csv-warn { font-size: 12px; color: var(--accent); }
+    .save-warn { font-size: 12px; color: #ef4444; font-weight: 600; }
+
+    .search-input {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 5px 10px;
+      font-size: 13px;
+      font-family: inherit;
+      width: 180px;
+    }
+    .search-input::placeholder { color: var(--dim); }
+    .search-input:focus { outline: none; border-color: var(--accent); }
+
+    /* filter buttons */
+    .filters {
+      display: flex;
+      gap: 3px;
+    }
+
+    .fbtn {
+      padding: 4px 9px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.12s;
+      line-height: 1.4;
+      font-family: inherit;
+    }
+    .fbtn:hover { color: var(--text); }
+    .fbtn.active { background: var(--surface3); color: var(--text); border-color: var(--muted); }
+    .fbtn[data-pos="QB"].active { color: var(--qb); border-color: var(--qb); }
+    .fbtn[data-pos="RB"].active { color: var(--rb); border-color: var(--rb); }
+    .fbtn[data-pos="WR"].active { color: var(--wr); border-color: var(--wr); }
+    .fbtn[data-pos="TE"].active { color: var(--te); border-color: var(--te); }
+    .fbtn[data-pos="K"].active  { color: var(--k);  border-color: var(--k);  }
+    .fbtn[data-pos="DEF"].active{ color: var(--def); border-color: var(--def); }
+
+    .toggle-lbl {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .toggle-lbl input { cursor: pointer; accent-color: var(--accent); }
+
+    .ml-auto { margin-left: auto; }
+
+    /* ── COUNT BAR ── */
+    .count-bar {
+      padding: 6px 14px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+      flex-shrink: 0;
+      display: none;
+      align-items: center;
+      gap: 16px;
+    }
+    .count-bar.visible { display: flex; }
+    .count-bar strong { color: var(--text); font-weight: 600; }
+
+    /* ── PLAYER LIST ── */
+    #player-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 10px 20px;
+    }
+
+    .board-header,
+    .player-row {
+      display: grid;
+      grid-template-columns: 50px 52px 74px 1fr 64px 48px 140px;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .board-header {
+      padding: 6px 10px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--dim);
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 1;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2px;
+    }
+
+    .player-row {
+      padding: 7px 10px;
+      border-radius: 5px;
+      margin-bottom: 1px;
+      border: 1px solid transparent;
+      transition: background 0.08s;
+    }
+
+    .player-row:hover { background: var(--surface2); }
+
+    .player-row.mine {
+      background: rgba(34,197,94,0.06);
+      border-color: rgba(34,197,94,0.2);
+    }
+
+    .player-row.taken {
+      opacity: 0.3;
+    }
+
+    .player-row.taken .pname { text-decoration: line-through; }
+
+    .orank {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .pbadge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .pbadge.qb { background: rgba(239,68,68,0.15); color: var(--qb); }
+    .pbadge.rb { background: rgba(34,197,94,0.15); color: var(--rb); }
+    .pbadge.wr { background: rgba(59,130,246,0.15); color: var(--wr); }
+    .pbadge.te { background: rgba(168,85,247,0.15); color: var(--te); }
+    .pbadge.k  { background: rgba(234,179,8,0.15); color: var(--k); }
+    .pbadge.def{ background: rgba(100,116,139,0.15); color: var(--def); }
+
+    .prank { font-size: 12px; color: var(--muted); }
+
+    .pname { font-size: 14px; font-weight: 600; }
+
+    .pteam {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .page {
+      font-size: 12px;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .row-actions {
+      display: flex;
+      gap: 4px;
+      justify-content: flex-end;
+    }
+
+    .abtn {
+      padding: 3px 9px;
+      border-radius: 4px;
+      border: 1px solid;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.4;
+      white-space: nowrap;
+      transition: background 0.1s;
+      font-family: inherit;
+    }
+
+    .abtn-mine {
+      background: rgba(34,197,94,0.08);
+      border-color: rgba(34,197,94,0.25);
+      color: #22c55e;
+    }
+    .abtn-mine:hover { background: rgba(34,197,94,0.18); }
+
+    .abtn-taken {
+      background: rgba(107,114,128,0.08);
+      border-color: rgba(107,114,128,0.25);
+      color: var(--muted);
+    }
+    .abtn-taken:hover { background: rgba(107,114,128,0.18); }
+
+    .abtn-undo {
+      background: rgba(239,68,68,0.08);
+      border-color: rgba(239,68,68,0.25);
+      color: #ef4444;
+    }
+    .abtn-undo:hover { background: rgba(239,68,68,0.18); }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 7px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-mine {
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.25);
+      color: #22c55e;
+    }
+
+    .badge-taken {
+      background: rgba(107,114,128,0.12);
+      border: 1px solid rgba(107,114,128,0.25);
+      color: var(--muted);
+    }
+
+    /* ── INSIGHTS ──
+       Needs strip, positional tiers, age cliffs and the best-available star.
+       All of it hangs off the "Insights" toggle: switched off, the board
+       renders exactly as it did before any of this existed. That's the
+       escape hatch for when it turns out to be noise mid-draft. */
+    .needs-bar {
+      display: none;
+      align-items: stretch;
+      gap: 1px;
+      background: var(--border);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+    .needs-bar.visible { display: flex; }
+
+    .need-cell {
+      background: var(--surface);
+      padding: 5px 12px 6px;
+      flex: 1;
+      min-width: 92px;
+      white-space: nowrap;
+    }
+
+    .need-top {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+    }
+    .need-pos {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+    .need-pos.qb { color: var(--qb); }
+    .need-pos.rb { color: var(--rb); }
+    .need-pos.wr { color: var(--wr); }
+    .need-pos.te { color: var(--te); }
+    .need-pos.k  { color: var(--k); }
+    .need-pos.def{ color: var(--def); }
+
+    .need-have { font-size: 14px; font-weight: 700; color: var(--text); }
+    .need-req  { font-size: 11px; color: var(--dim); }
+
+    .need-tag {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: auto;
+    }
+    .need-tag.NEED { background: rgba(245,158,11,0.16); color: var(--accent); }
+    .need-tag.OK   { background: rgba(107,114,128,0.14); color: var(--muted); }
+    .need-tag.LOW  { background: transparent; color: var(--dim); }
+    .need-tag.LATE { background: transparent; color: var(--dim); }
+
+    .need-cliff { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .need-cliff strong { color: var(--text); font-weight: 600; }
+    .need-cliff.thin strong { color: var(--accent); }
+    .need-cell.dim { opacity: 0.45; }
+
+    /* Tier separator inside the board (position-filtered views only). */
+    .tier-head {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 12px 10px 5px;
+      margin-top: 2px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--dim);
+    }
+    .tier-head:first-child { border-top: none; margin-top: 0; padding-top: 4px; }
+    .tier-head .tcount { letter-spacing: 0; text-transform: none; font-weight: 500; }
+
+    .tchip {
+      display: inline-block;
+      padding: 0 4px;
+      border-radius: 3px;
+      background: var(--surface3);
+      color: var(--dim);
+      font-size: 10px;
+      font-weight: 600;
+      margin-left: 3px;
+    }
+
+    /* Past the dynasty value cliff for the position. */
+    .page.cliff { color: var(--accent); font-weight: 600; }
+
+    /* Top available player at a position the roster still needs. */
+    .star { color: var(--accent); margin-right: 3px; }
+
+    /* Insights off reclaims the width the tier chip was using, so the plain
+       board is pixel-identical to what it was before any of this landed.
+       Scoped above the mobile breakpoint — below it the two-line row layout
+       sets its own columns and must keep winning. */
+    @media (min-width: 821px) {
+      body.no-insights .board-header,
+      body.no-insights .player-row {
+        grid-template-columns: 50px 52px 56px 1fr 64px 48px 140px;
+      }
+    }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 10px;
+      color: var(--muted);
+      text-align: center;
+    }
+    .empty-state .icon { font-size: 40px; opacity: 0.25; }
+    .empty-state h3 { font-size: 16px; color: var(--text); font-weight: 600; }
+    .empty-state p { font-size: 13px; }
+
+    /* ── MOBILE ──
+       Phone layout: the sidebar becomes a slide-over drawer toggled from the
+       toolbar, and each player row folds into two lines (name on top, the
+       posRank/team/age metadata beneath) so the actions stay thumb-sized. */
+    .mobile-only { display: none; }
+    #scrim { display: none; }
+
+    @media (max-width: 820px) {
+      body {
+        grid-template-columns: 1fr;
+      }
+
+      .mobile-only { display: inline-flex; }
+
+      /* Sidebar → slide-over drawer */
+      #sidebar {
+        position: fixed;
+        top: 0; bottom: 0; left: 0;
+        width: min(88vw, 340px);
+        z-index: 30;
+        transform: translateX(-101%);
+        transition: transform 0.18s ease;
+        box-shadow: 0 0 40px rgba(0,0,0,0.5);
+      }
+      body.roster-open #sidebar { transform: translateX(0); }
+
+      #scrim {
+        display: block;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        z-index: 20;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.18s ease;
+      }
+      body.roster-open #scrim { opacity: 1; pointer-events: auto; }
+
+      /* Slot remove buttons have no hover on touch — always show them. */
+      .slot-remove { opacity: 1; }
+
+      /* Toolbar reflows to two rows; filters scroll sideways if needed. */
+      .toolbar { padding: 8px 10px; gap: 8px; }
+      .toolbar-sep { display: none; }
+      .search-input { flex: 1 1 140px; width: auto; min-width: 0; font-size: 16px; }
+      .filters { overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+      .filters::-webkit-scrollbar { display: none; }
+      .fbtn { padding: 6px 11px; }
+      .ml-auto { margin-left: 0; }
+      .btn { padding: 7px 12px; }
+
+      .count-bar { gap: 12px; padding: 6px 10px; overflow-x: auto; white-space: nowrap; }
+
+      /* Needs strip scrolls sideways rather than squeezing the cells. */
+      .need-cell { flex: 0 0 auto; min-width: 86px; padding: 5px 10px 6px; }
+      .tier-head { padding: 10px 8px 4px; }
+
+      /* Two-line player rows */
+      #player-list { padding: 4px 8px 24px; }
+      .board-header { display: none; }
+
+      .player-row {
+        grid-template-columns: 40px 40px auto auto auto 1fr auto;
+        grid-template-rows: auto auto;
+        gap: 2px 8px;
+        padding: 8px;
+        margin-bottom: 3px;
+        background: var(--surface);
+        border-color: var(--border);
+      }
+      .player-row .orank       { grid-area: 1 / 1 / 3 / 2; align-self: center; }
+      .player-row .pbadge      { grid-area: 1 / 2 / 3 / 3; align-self: center; }
+      .player-row .pname       { grid-area: 1 / 3 / 2 / 7; }
+      .player-row .prank       { grid-area: 2 / 3 / 3 / 4; }
+      .player-row .pteam       { grid-area: 2 / 4 / 3 / 5; text-align: left; }
+      .player-row .page        { grid-area: 2 / 5 / 3 / 6; text-align: left; }
+      .player-row .row-actions { grid-area: 1 / 7 / 3 / 8; align-self: center; }
+
+      .player-row .pteam::before,
+      .player-row .page::before { content: '· '; color: var(--dim); }
+      .player-row .page::after  { content: ' yrs'; }
+
+      .abtn { padding: 7px 11px; font-size: 13px; }
+      .status-badge { padding: 4px 7px; }
+      .row-actions { flex-direction: column; gap: 4px; align-items: stretch; }
+      .row-actions .abtn, .row-actions .status-badge { justify-content: center; }
+    }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--dim); }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ SIDEBAR ═══════════════════════════ -->
+<div id="scrim" onclick="toggleRoster(false)"></div>
+<aside id="sidebar">
+  <div class="sb-header">
+    <h2>League</h2>
+    <select class="league-select" id="league-select"></select>
+  </div>
+  <div class="roster-scroll" id="roster-scroll"></div>
+  <div class="sb-footer">
+    <div style="display:flex;align-items:baseline;gap:4px">
+      <span class="pick-count-num" id="pick-count">0</span>
+      <span id="pick-total-label">/ 0 roster spots</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════ MAIN ═══════════════════════════ -->
+<main id="main">
+
+  <!-- toolbar -->
+  <div class="toolbar">
+    <input type="file" id="csv-input" accept=".csv" style="display:none">
+
+    <button class="btn mobile-only" id="roster-btn" onclick="toggleRoster()">☰ My Team</button>
+
+    <div style="display:flex;align-items:center;gap:8px">
+      <button class="btn btn-upload" onclick="document.getElementById('csv-input').click()">
+        ↑ Upload CSV
+      </button>
+      <span class="csv-info" id="csv-info">No CSV loaded</span>
+      <span class="csv-warn" id="csv-warn" style="display:none"></span>
+      <span class="save-warn" id="save-warn" style="display:none" title="Your browser blocked or ran out of local storage. Picks made now may not survive a reload.">⚠ Not saved</span>
+    </div>
+
+    <div class="toolbar-sep"></div>
+
+    <div class="filters" id="filters"></div>
+
+    <div class="toolbar-sep"></div>
+
+    <input type="search" id="search" class="search-input" placeholder="Search players…" autocomplete="off" spellcheck="false">
+
+    <div class="toolbar-sep"></div>
+
+    <label class="toggle-lbl">
+      <input type="checkbox" id="hide-taken" checked>
+      Hide taken
+    </label>
+
+    <label class="toggle-lbl" title="Needs strip, positional tiers, age cliffs and best-available markers. Turn off for the plain board.">
+      <input type="checkbox" id="insights" checked>
+      Insights
+    </label>
+
+    <div class="ml-auto" style="display:flex;gap:8px">
+      <span class="sleeper-pill" id="sleeper-pill" style="display:none"></span>
+      <button class="btn" id="sleeper-btn" onclick="openSleeper()" title="Follow a live Sleeper draft and mark picks automatically. Public API, no login or token.">⇄ Sleeper</button>
+      <button class="btn" onclick="openExport()" title="Copy a plain-text list of your roster and every taken player — read-only, changes nothing.">⧉ Export</button>
+      <button class="btn" onclick="confirmClearCSV()">✕ Clear CSV</button>
+      <button class="btn" onclick="confirmReset()">↺ Reset Draft</button>
+    </div>
+  </div>
+
+  <!-- needs strip -->
+  <div class="needs-bar" id="needs-bar"></div>
+
+  <!-- count bar -->
+  <div class="count-bar" id="count-bar">
+    <span><strong id="ct-shown">0</strong> shown</span>
+    <span><strong id="ct-avail">0</strong> available</span>
+    <span><strong id="ct-taken">0</strong> taken</span>
+    <span><strong id="ct-mine">0</strong> my picks</span>
+  </div>
+
+  <!-- player list -->
+  <div id="player-list">
+    <div class="empty-state">
+      <div class="icon">📋</div>
+      <h3>Upload a rankings CSV to start drafting</h3>
+      <p>Click "Upload CSV" above to load your player rankings</p>
+      <br>
+      <button class="btn btn-upload" onclick="document.getElementById('csv-input').click()">Upload CSV</button>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ─────────────────────────────────────────────────────────────────
+// LEAGUE CONFIGS
+// ─────────────────────────────────────────────────────────────────
+// Slot order matters — earlier slots fill before later. FLEX/SUPERFLEX
+// only fill after their eligible primary positions are full. Bench, taxi,
+// and IR catch overflow at the very end.
+const LEAGUES = {
+  dynasty: {
+    id: 'dynasty',
+    name: 'Dynasty (12-team)',
+    teams: 12,
+    longTerm: true,
+    slots: [
+      { id: 'QB',    label: 'QB',    pos: ['QB'],            count: 1, section: 'Starters' },
+      { id: 'RB',    label: 'RB',    pos: ['RB'],            count: 2, section: 'Starters' },
+      { id: 'WR',    label: 'WR',    pos: ['WR'],            count: 2, section: 'Starters' },
+      { id: 'TE',    label: 'TE',    pos: ['TE'],            count: 1, section: 'Starters' },
+      { id: 'FLEX',  label: 'FLEX',  pos: ['RB','WR','TE'],  count: 2, section: 'Starters' },
+      { id: 'DEF',   label: 'DEF',   pos: ['DEF'],           count: 1, section: 'Starters' },
+      { id: 'BN',    label: 'BN',    pos: null,              count: 10, section: 'Bench'   },
+      { id: 'TAXI',  label: 'TAXI',  pos: null,              count: 3, section: 'Reserve'  },
+    ],
+  },
+  keeper: {
+    id: 'keeper',
+    name: 'Keeper (8-team)',
+    teams: 8,
+    longTerm: true,
+    slots: [
+      { id: 'QB',    label: 'QB',    pos: ['QB'],            count: 1, section: 'Starters' },
+      { id: 'RB',    label: 'RB',    pos: ['RB'],            count: 2, section: 'Starters' },
+      { id: 'WR',    label: 'WR',    pos: ['WR'],            count: 3, section: 'Starters' },
+      { id: 'TE',    label: 'TE',    pos: ['TE'],            count: 1, section: 'Starters' },
+      { id: 'FLEX',  label: 'FLEX',  pos: ['RB','WR','TE'],  count: 2, section: 'Starters' },
+      { id: 'DEF',   label: 'DEF',   pos: ['DEF'],           count: 1, section: 'Starters' },
+      { id: 'BN',    label: 'BN',    pos: null,              count: 7, section: 'Bench'    },
+    ],
+  },
+  redraft: {
+    id: 'redraft',
+    name: 'Redraft (14-team)',
+    teams: 14,
+    longTerm: false,
+    slots: [
+      { id: 'QB',    label: 'QB',    pos: ['QB'],            count: 1, section: 'Starters' },
+      { id: 'RB',    label: 'RB',    pos: ['RB'],            count: 2, section: 'Starters' },
+      { id: 'WR',    label: 'WR',    pos: ['WR'],            count: 2, section: 'Starters' },
+      { id: 'TE',    label: 'TE',    pos: ['TE'],            count: 1, section: 'Starters' },
+      { id: 'FLEX',  label: 'FLEX',  pos: ['RB','WR','TE'],  count: 1, section: 'Starters' },
+      { id: 'K',     label: 'K',     pos: ['K'],             count: 1, section: 'Starters' },
+      { id: 'DEF',   label: 'DEF',   pos: ['DEF'],           count: 1, section: 'Starters' },
+      { id: 'BN',    label: 'BN',    pos: null,              count: 4, section: 'Bench'    },
+    ],
+  },
+  redraft12: {
+    id: 'redraft12',
+    name: 'Redraft (12-team)',
+    teams: 12,
+    longTerm: false,
+    slots: [
+      { id: 'QB',    label: 'QB',    pos: ['QB'],            count: 1, section: 'Starters' },
+      { id: 'RB',    label: 'RB',    pos: ['RB'],            count: 2, section: 'Starters' },
+      { id: 'WR',    label: 'WR',    pos: ['WR'],            count: 2, section: 'Starters' },
+      { id: 'TE',    label: 'TE',    pos: ['TE'],            count: 1, section: 'Starters' },
+      { id: 'FLEX',  label: 'W/R/T', pos: ['RB','WR','TE'],  count: 2, section: 'Starters' },
+      { id: 'DEF',   label: 'DEF',   pos: ['DEF'],           count: 1, section: 'Starters' },
+      { id: 'BN',    label: 'BN',    pos: null,              count: 5, section: 'Bench'    },
+    ],
+  },
+};
+
+// Rankings bundled into the file so a fresh browser — a phone on draft day,
+// say — starts loaded instead of staring at the upload prompt. A league is
+// seeded at most once (tracked by seededKey); uploading or clearing a CSV
+// afterwards sticks, and the seed never overwrites existing picks.
+const DEFAULT_CSV = {
+  dynasty: {
+    name: 'sample-rankings.csv',
+    text: `"Rank","Name","Team","Pos","Age"
+"1","Amari Dunmore","GB","WR","25.4"
+"2","Bryce Kirkland","NO","RB","27.4"
+"3","Caleb Rutherford","ATL","WR","22.6"
+"4","Darnell Ziegler","HOU","WR","26.8"
+"5","Elias Galloway","NYG","RB","28.8"
+"6","Foster Nakamura","BAL","WR","23.9"
+"7","Gideon Fairbanks","IND","TE","28.4"
+"8","Hollis Marchetti","NYJ","RB","21.3"
+"9","Isaiah Thackeray","BUF","WR","25.4"
+"10","Jarrett Braddock","JAX","WR","29.6"
+"11","Kellen Inglethorpe","PHI","RB","22.5"
+"12","Lucian Ainsworth","CAR","TE","23.5"
+"13","Malachi Holloway","KC","WR","30.9"
+"14","Nasir Oyelaran","PIT","WR","23.9"
+"15","Omari Vasquez","CHI","QB","33.6"
+"16","Pierce Delacroix","LAC","RB","21.3"
+"17","Quinton Kingsley","SEA","WR","25.4"
+"18","Rashad Castellano","CIN","QB","35.1"
+"19","Silas Jessup","LAR","WR","22.6"
+"20","Tobias Quarles","SF","RB","25.9"
+"21","Uriah Yarborough","CLE","WR","30.9"
+"22","Vance Fontaine","LV","QB","27.8"
+"23","Wendell Merriweather","TB","WR","28.3"
+"24","Xavier Ellison","DAL","RB","21.3"
+"25","Yusuf Langston","MIA","RB","24.4"
+"26","Zane Sandoval","TEN","TE","23.5"
+"27","Cormac Abernathy","DEN","WR","22.6"
+"28","Dashiell Hartwell","MIN","TE","23.5"
+"29","Emmett Ortega","WAS","WR","30.9"
+"30","Finnian Grantham","DET","RB","23.8"
+"31","Griffin Northcutt","NE","WR","28.3"
+"32","Hakeem Underwood","ARI","TE","23.5"
+"33","Ibrahim Calloway","GB","RB","24.4"
+"34","Jericho Jamison","NO","WR","29.6"
+"35","Kaden Blackwood","ATL","RB","22.5"
+"36","Lorenzo Ivers","HOU","WR","26.8"
+"37","Marcus Pemberton","NYG","QB","38.2"
+"38","Nolan Whitfield","BAL","WR","23.9"
+"39","Orion Everhart","IND","RB","26.7"
+"40","Preston Lockridge","NYJ","QB","23.4"
+"41","Rowan Dunmore","BUF","WR","25.4"
+"42","Soren Kirkland","JAX","RB","27.4"
+"43","Tavian Rutherford","PHI","QB","25.1"
+"44","Ulises Ziegler","CAR","RB","25.9"
+"45","Viggo Galloway","KC","QB","38.2"
+"46","Wesley Nakamura","PIT","TE","23.5"
+"47","Xander Fairbanks","CHI","WR","28.3"
+"48","Yannick Marchetti","LAC","WR","21.8"
+"49","Zeke Thackeray","SEA","WR","25.4"
+"50","Alaric Braddock","CIN","TE","23.5"
+"51","Amari Inglethorpe","LAR","RB","22.5"
+"52","Bryce Ainsworth","SF","WR","26.8"
+"53","Caleb Holloway","CLE","RB","28.8"
+"54","Darnell Oyelaran","LV","WR","23.9"
+"55","Elias Vasquez","TB","TE","28.4"
+"56","Foster Delacroix","DAL","RB","21.3"
+"57","Gideon Kingsley","MIA","WR","25.4"
+"58","Hollis Castellano","TEN","RB","27.4"
+"59","Isaiah Jessup","DEN","WR","22.6"
+"60","Jarrett Quarles","MIN","RB","25.9"
+"61","Kellen Yarborough","WAS","WR","30.9"
+"62","Lucian Fontaine","DET","RB","23.8"
+"63","Malachi Merriweather","NE","QB","33.6"
+"64","Nasir Ellison","ARI","RB","21.3"
+"65","Omari Langston","GB","WR","25.4"
+"66","Pierce Sandoval","NO","QB","35.1"
+"67","Quinton Abernathy","ATL","WR","22.6"
+"68","Rashad Hartwell","HOU","WR","26.8"
+"69","Silas Ortega","NYG","QB","38.2"
+"70","Tobias Grantham","BAL","WR","23.9"
+"71","Uriah Northcutt","IND","TE","28.4"
+"72","Vance Underwood","NYJ","RB","21.3"
+"73","Wendell Calloway","BUF","WR","25.4"
+"74","Xavier Jamison","JAX","RB","27.4"
+"75","Yusuf Blackwood","PHI","WR","22.6"
+"76","Zane Ivers","CAR","TE","23.5"
+"77","Cormac Pemberton","KC","WR","30.9"
+"78","Dashiell Whitfield","PIT","RB","23.8"
+"79","Emmett Everhart","CHI","WR","28.3"
+"80","Finnian Lockridge","LAC","RB","21.3"
+"81","Griffin Dunmore","SEA","QB","29.5"
+"82","Hakeem Kirkland","CIN","RB","27.4"
+"83","Ibrahim Rutherford","LAR","TE","28.4"
+"84","Jericho Ziegler","SF","RB","25.9"
+"85","Kaden Galloway","CLE","WR","30.9"
+"86","Lorenzo Nakamura","LV","QB","27.8"
+"87","Marcus Fairbanks","TB","RB","26.7"
+"88","Nolan Marchetti","DAL","WR","21.8"
+"89","Orion Thackeray","MIA","RB","24.4"
+"90","Preston Braddock","TEN","WR","29.6"
+"91","Rowan Inglethorpe","DEN","WR","22.6"
+"92","Soren Ainsworth","MIN","WR","26.8"
+"93","Tavian Holloway","WAS","WR","30.9"
+"94","Ulises Oyelaran","DET","WR","23.9"
+"95","Viggo Vasquez","NE","WR","28.3"
+"96","Baltimore Ravens","BAL","DEF",""
+"97","Wesley Delacroix","GB","K","29.1"
+"98","Philadelphia Eagles","PHI","DEF",""
+"99","Denver Broncos","DEN","DEF",""
+"100","Xander Kingsley","HOU","K","26.4"
+"101","Pittsburgh Steelers","PIT","DEF",""
+"102","Yannick Castellano","BAL","K","29.1"
+"103","Buffalo Bills","BUF","DEF",""
+"104","Zeke Jessup","NYJ","K","31.8"
+"105","Detroit Lions","DET","DEF",""
+"106","Houston Texans","HOU","DEF",""
+"107","Alaric Quarles","PHI","K","29.1"
+"108","Green Bay Packers","GB","DEF",""
+"109","Amari Yarborough","KC","K","31.8"
+"110","Seattle Seahawks","SEA","DEF",""
+"111","Bryce Fontaine","CHI","K","34.2"`,
+  },
+};
+
+// Derived from LEAGUES so adding a league config is the only edit needed —
+// this drove the dropdown, loadAll() and seeding off a separate hardcoded
+// list, and they silently disagreed the moment a league was added.
+const LEAGUE_ORDER = Object.keys(LEAGUES);
+const ALL_POSITIONS = ['QB','RB','WR','TE','K','DEF'];
+
+// Common CSV position spellings normalized to our canonical six.
+const POS_ALIASES = {
+  'DST': 'DEF', 'D/ST': 'DEF', 'DEFENSE': 'DEF', 'DEF.': 'DEF',
+  'PK': 'K', 'KICKER': 'K',
+  'PASS': 'QB', 'HB': 'RB', 'FB': 'RB', 'WR/TE': 'WR',
+};
+
+function normalizePos(raw) {
+  let p = String(raw || '').toUpperCase().trim();
+  return POS_ALIASES[p] || p;
+}
+
+// Warnings from the most recent parseCSV() call, surfaced in the toolbar.
+let lastParse = { skipped: 0, unknownPos: [] };
+
+function totalSlots(cfg) {
+  return cfg.slots.reduce((sum, s) => sum + s.count, 0);
+}
+
+function leaguePositions(cfg) {
+  // Positions that have a primary roster slot in this league.
+  const set = new Set();
+  for (const s of cfg.slots) {
+    if (s.pos) s.pos.forEach(p => set.add(p));
+  }
+  return ALL_POSITIONS.filter(p => set.has(p));
+}
+
+// ─────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────
+const ACTIVE_KEY = 'fantasy_draft_active_league';
+const INSIGHTS_KEY = 'fantasy_draft_insights';
+const stateKey  = id => `fantasy_draft_league_${id}`;
+const csvKey    = id => `fantasy_draft_csv_${id}`;
+const seededKey = id => `fantasy_draft_seeded_${id}`;
+
+// Per-league state: { csvText, csvName, players, taken, myPicks }
+const LEAGUE_STATE = {};
+
+let S = {
+  activeLeague: 'dynasty',
+  filter: 'ALL',
+  hideTaken: true,
+  search: '',
+  insights: true,
+};
+
+function cfg()     { return LEAGUES[S.activeLeague]; }
+function ls()      { return LEAGUE_STATE[S.activeLeague]; }
+function players() { return ls().players; }
+
+// ─────────────────────────────────────────────────────────────────
+// PERSIST
+// ─────────────────────────────────────────────────────────────────
+// Surface storage failures — silently losing picks mid-draft is the
+// worst outcome for this tool, so make it loud and persistent.
+function flagSaveError(e) {
+  console.warn('localStorage write failed', e);
+  const el = document.getElementById('save-warn');
+  if (el) el.style.display = '';
+}
+function clearSaveError() {
+  const el = document.getElementById('save-warn');
+  if (el) el.style.display = 'none';
+}
+
+function saveLeague(id) {
+  try {
+    const L = LEAGUE_STATE[id];
+    localStorage.setItem(stateKey(id), JSON.stringify({
+      taken: L.taken, myPicks: L.myPicks, csvName: L.csvName,
+    }));
+    clearSaveError();
+  } catch(e) { flagSaveError(e); }
+}
+
+function saveActive() {
+  try { localStorage.setItem(ACTIVE_KEY, S.activeLeague); } catch(e) {}
+}
+
+function saveLeagueCSV(id) {
+  try {
+    const L = LEAGUE_STATE[id];
+    if (L.csvText) localStorage.setItem(csvKey(id), L.csvText);
+    else localStorage.removeItem(csvKey(id));
+    clearSaveError();
+  } catch(e) { flagSaveError(e); }
+}
+
+function loadLeague(id) {
+  const L = { csvText: null, csvName: null, players: [], taken: [], myPicks: [], warn: null };
+  try {
+    const raw = localStorage.getItem(stateKey(id));
+    if (raw) {
+      const d = JSON.parse(raw);
+      L.taken   = Array.isArray(d.taken) ? d.taken.filter(x => x != null) : [];
+      L.myPicks = Array.isArray(d.myPicks)
+        ? d.myPicks.filter(p => p && p.id != null && p.slot)
+        : [];
+      L.csvName = d.csvName || null;
+    }
+  } catch(e) { console.warn('loadLeague: corrupt state, starting fresh', e); }
+  try {
+    const csv = localStorage.getItem(csvKey(id));
+    if (csv) {
+      L.csvText = csv;
+      L.players = parseCSV(csv);
+      L.warn = lastParse;
+    }
+  } catch(e) { console.warn('loadLeague: CSV parse failed', e); }
+  L.sleeper = loadSleeperConf(id);
+  LEAGUE_STATE[id] = L;
+}
+
+// One-time seed of a bundled CSV for a league that has never had one.
+function seedLeague(id) {
+  const seed = DEFAULT_CSV[id];
+  if (!seed) return;
+  const L = LEAGUE_STATE[id];
+  try { if (localStorage.getItem(seededKey(id))) return; } catch(e) {}
+  // Mark before the CSV check, not after: a league that already has its own
+  // CSV counts as seeded, so a later Clear CSV stays cleared instead of
+  // resurrecting the bundled rankings on the next reload.
+  try { localStorage.setItem(seededKey(id), '1'); } catch(e) {}
+  if (L.csvText) return;
+  L.csvText = seed.text;
+  L.csvName = seed.name;
+  L.players = parseCSV(L.csvText);
+  L.warn    = lastParse;
+  saveLeagueCSV(id);
+  saveLeague(id);
+}
+
+function loadAll() {
+  for (const id of LEAGUE_ORDER) loadLeague(id);
+  for (const id of LEAGUE_ORDER) seedLeague(id);
+  try {
+    const a = localStorage.getItem(ACTIVE_KEY);
+    if (a && LEAGUES[a]) S.activeLeague = a;
+  } catch(e) {}
+  try {
+    if (localStorage.getItem(INSIGHTS_KEY) === '0') S.insights = false;
+  } catch(e) {}
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CSV PARSING
+// ─────────────────────────────────────────────────────────────────
+function parseCSVLine(line) {
+  const out = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (c === ',' && !inQ) {
+      out.push(cur.trim());
+      cur = '';
+    } else {
+      cur += c;
+    }
+  }
+  out.push(cur.trim());
+  return out;
+}
+
+function parseCSV(text) {
+  lastParse = { skipped: 0, unknownPos: [] };
+  const lines = text.trim().split(/\r?\n/);
+  if (lines.length < 2) return [];
+  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
+  const players = [];
+  const unknown = new Set();
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const vals = parseCSVLine(line);
+    const row = {};
+    headers.forEach((h, j) => { row[h] = vals[j] || ''; });
+    const pos = normalizePos(row['pos']);
+    if (!pos) { lastParse.skipped++; continue; }
+    if (!ALL_POSITIONS.includes(pos)) unknown.add(pos);
+    const rawRank = parseInt(row['rank'], 10);
+    const rank = Number.isFinite(rawRank) ? rawRank : i;
+    players.push({
+      id:   i - 1,
+      rank,
+      name: row['name'] || `Player ${i}`,
+      team: row['team'] || '—',
+      pos,
+      age:  row['age']  || '—',
+      posRank: 0,
+    });
+  }
+  lastParse.unknownPos = [...unknown];
+  // Sort by consensus rank, then compute positional rank.
+  players.sort((a, b) => a.rank - b.rank);
+  const posCounts = {};
+  for (const p of players) {
+    posCounts[p.pos] = (posCounts[p.pos] || 0) + 1;
+    p.posRank = posCounts[p.pos];
+  }
+  computeTiers(players);
+  return players;
+}
+
+// Positional tiers. Within a position, a tier break is an unusually large gap
+// in overall rank between consecutive players — the board falling off a cliff.
+// The threshold is derived from that position's own median gap rather than a
+// fixed tier size, so it adapts to whatever rankings file gets loaded: a tight
+// consensus board produces tighter tiers, a spread-out one produces wider ones.
+// Twelve tiers keeps the breaks meaningful through roughly rank 220 — the far
+// side of a 22-round startup — after which everything collapses into one deep
+// pool, which is honest: the tail of a rankings file isn't really tiered.
+const MAX_TIERS = 12;
+
+function computeTiers(players) {
+  const byPos = {};
+  for (const p of players) (byPos[p.pos] = byPos[p.pos] || []).push(p);
+
+  for (const list of Object.values(byPos)) {
+    const gaps = [];
+    for (let i = 1; i < list.length; i++) gaps.push(list[i].rank - list[i - 1].rank);
+
+    const sorted = [...gaps].sort((a, b) => a - b);
+    const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 1;
+    // Floor of 4 keeps dense positions from splitting on every 2-rank wobble.
+    const threshold = Math.max(4, median * 2);
+
+    let tier = 1, capped = false;
+    if (list.length) list[0].tier = 1;
+    for (let i = 1; i < list.length; i++) {
+      if (gaps[i - 1] >= threshold) {
+        if (tier < MAX_TIERS) tier++;
+        else capped = true;
+      }
+      list[i].tier = tier;
+    }
+    // Flag the merged tail so the UI can call it "deep" instead of a number.
+    if (capped) for (const p of list) if (p.tier === MAX_TIERS) p.deep = true;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ROSTER SLOT LOGIC
+// ─────────────────────────────────────────────────────────────────
+function filledBySlot() {
+  const map = {};
+  const pool = players();
+  for (const pick of ls().myPicks) {
+    if (!map[pick.slot]) map[pick.slot] = [];
+    const p = pool.find(x => x.id === pick.id);
+    if (p) map[pick.slot].push(p);
+  }
+  return map;
+}
+
+function assignSlot(pos) {
+  const map = filledBySlot();
+  const slots = cfg().slots;
+
+  // 1. Primary position slots (single-pos slots like QB/RB/WR/TE/K/DEF).
+  for (const sd of slots) {
+    if (!sd.pos || sd.pos.length !== 1) continue;
+    if (sd.pos[0] !== pos) continue;
+    const cur = (map[sd.id] || []).length;
+    if (cur < sd.count) return sd.id;
+  }
+
+  // 2. Multi-position slots (FLEX, SUPERFLEX).
+  for (const sd of slots) {
+    if (!sd.pos || sd.pos.length < 2) continue;
+    if (!sd.pos.includes(pos)) continue;
+    const cur = (map[sd.id] || []).length;
+    if (cur < sd.count) return sd.id;
+  }
+
+  // 3. Bench / Reserve (any position).
+  for (const sd of slots) {
+    if (sd.pos !== null) continue;
+    const cur = (map[sd.id] || []).length;
+    if (cur < sd.count) return sd.id;
+  }
+
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ACTIONS
+// ─────────────────────────────────────────────────────────────────
+function status(id) {
+  const L = ls();
+  if (L.myPicks.find(p => p.id === id)) return 'mine';
+  if (L.taken.includes(id)) return 'taken';
+  return 'available';
+}
+
+// Put a player in the first slot that fits, without saving or re-rendering.
+// Returns '' on success or a short reason it could not happen, so a batch
+// caller (Sleeper sync) can collect failures instead of firing an alert per
+// player and re-rendering the board on every pick.
+function slotMyPick(id) {
+  const L = ls();
+  if (L.myPicks.find(p => p.id === id)) return 'already on your roster';
+  const player = L.players.find(p => p.id === id);
+  if (!player) return 'not on this board';
+  const slot = assignSlot(player.pos);
+  if (!slot) return 'roster full';
+  L.taken = L.taken.filter(x => x !== id);
+  L.myPicks.push({ id, slot });
+  return '';
+}
+
+function addMyPick(id) {
+  const reason = slotMyPick(id);
+  if (reason === 'roster full') { alert('Your roster is full! Remove a player to make room.'); return; }
+  if (reason) return;
+  saveLeague(S.activeLeague); render();
+}
+
+function removeMyPick(id) {
+  const L = ls();
+  L.myPicks = L.myPicks.filter(p => p.id !== id);
+  saveLeague(S.activeLeague); render();
+}
+
+function markTaken(id) {
+  const L = ls();
+  if (L.taken.includes(id) || L.myPicks.find(p => p.id === id)) return;
+  L.taken.push(id);
+  saveLeague(S.activeLeague); render();
+}
+
+function undoTaken(id) {
+  const L = ls();
+  L.taken = L.taken.filter(x => x !== id);
+  saveLeague(S.activeLeague); render();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// EXPORT
+// ─────────────────────────────────────────────────────────────────
+// A plain-text dump of the active league's draft state, meant to be pasted
+// into a chat. Ids are meaningless outside this page, so everything is
+// rendered as names. Purely read-only: nothing here touches LEAGUE_STATE
+// or localStorage, so it is safe to open in the middle of a draft.
+function exportText() {
+  const L = ls();
+  const cfg = LEAGUES[S.activeLeague];
+  const byId = new Map(L.players.map(p => [p.id, p]));
+  const line = p => `${p.name} — ${p.pos}${p.posRank || ''}, ${p.team}, age ${p.age} (overall #${p.rank})`;
+  const out = [];
+
+  out.push(`LEAGUE: ${cfg.name} — ${cfg.teams} teams`);
+  out.push(`Rankings: ${L.csvName || '(none)'}`);
+  out.push('');
+
+  // Roster, grouped in the config's slot order rather than pick order, so it
+  // reads like a lineup card.
+  out.push(`MY TEAM (${L.myPicks.length})`);
+  if (!L.myPicks.length) {
+    out.push('  (empty)');
+  } else {
+    const seen = new Set();
+    for (const slot of cfg.slots) {
+      for (const pick of L.myPicks) {
+        if (pick.slot !== slot.id || seen.has(pick)) continue;
+        seen.add(pick);
+        const p = byId.get(pick.id);
+        out.push(`  ${slot.label.padEnd(5)} ${p ? line(p) : `(unknown player id ${pick.id})`}`);
+      }
+    }
+    // Picks whose slot no longer exists in the config still belong in the list.
+    for (const pick of L.myPicks) {
+      if (seen.has(pick)) continue;
+      const p = byId.get(pick.id);
+      out.push(`  ${String(pick.slot).padEnd(5)} ${p ? line(p) : `(unknown player id ${pick.id})`}`);
+    }
+  }
+  out.push('');
+
+  out.push(`TAKEN BY OTHERS (${L.taken.length}) — in the order they were marked`);
+  if (!L.taken.length) {
+    out.push('  (none)');
+  } else {
+    L.taken.forEach((id, i) => {
+      const p = byId.get(id);
+      out.push(`  ${String(i + 1).padStart(3)}. ${p ? line(p) : `(unknown player id ${id})`}`);
+    });
+  }
+  out.push('');
+
+  const gone = new Set([...L.taken, ...L.myPicks.map(p => p.id)]);
+  const avail = L.players.filter(p => !gone.has(p.id));
+  out.push(`BEST AVAILABLE (top 25 of ${avail.length} remaining)`);
+  avail.slice(0, 25).forEach(p => out.push(`  ${line(p)}`));
+
+  return out.join('\n');
+}
+
+function openExport() {
+  const text = exportText();
+  const back = document.createElement('div');
+  back.className = 'export-back';
+  back.innerHTML = `
+    <div class="export-box">
+      <div class="export-head">
+        <span>Draft state — read only</span>
+        <button class="btn" data-close>✕ Close</button>
+      </div>
+      <textarea readonly spellcheck="false"></textarea>
+      <div class="export-actions">
+        <button class="btn btn-upload" data-copy>⧉ Copy</button>
+        <span class="export-note" data-note>Nothing here changes your draft.</span>
+      </div>
+    </div>`;
+  const ta = back.querySelector('textarea');
+  ta.value = text;
+
+  const close = () => back.remove();
+  back.querySelector('[data-close]').onclick = close;
+  back.onclick = e => { if (e.target === back) close(); };
+  document.addEventListener('keydown', function esc(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+  });
+
+  // navigator.clipboard is unavailable on file:// in some browsers, so fall
+  // back to selecting the text for a manual copy rather than failing silently.
+  const note = back.querySelector('[data-note]');
+  back.querySelector('[data-copy]').onclick = () => {
+    const done = ok => { note.textContent = ok ? '✓ Copied to clipboard.' : 'Copy blocked — text is selected, press ⌘C.'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(() => done(true), () => { ta.select(); done(false); });
+    } else {
+      ta.select(); done(false);
+    }
+  };
+
+  document.body.appendChild(back);
+  ta.focus(); ta.setSelectionRange(0, 0);
+}
+
+// ─────────────────────────────────────────────────────────────────
+// INSIGHTS
+// ─────────────────────────────────────────────────────────────────
+// Kicker and defense are a single late pick, not a need to chase from round
+// one, so they stay dimmed until the roster is nearly full.
+const LATE_POS = ['K', 'DEF'];
+
+// Age past which a position's dynasty value falls away. Redraft leagues
+// (longTerm: false) ignore this entirely — a 32-year-old is fine for one year.
+const AGE_CLIFF = { RB: 27, WR: 29, TE: 30, QB: 32 };
+
+// How many of each position this league's slots call for: req = dedicated
+// slots, flex = multi-position slots that would also accept them.
+function slotDemand(pos) {
+  let req = 0, flex = 0;
+  for (const s of cfg().slots) {
+    if (!s.pos) continue;
+    if (s.pos.length === 1 && s.pos[0] === pos) req += s.count;
+    else if (s.pos.length > 1 && s.pos.includes(pos)) flex += s.count;
+  }
+  return { req, flex };
+}
+
+function myPosCounts() {
+  const pool = players();
+  const counts = {};
+  for (const pk of ls().myPicks) {
+    const p = pool.find(x => x.id === pk.id);
+    if (p) counts[p.pos] = (counts[p.pos] || 0) + 1;
+  }
+  return counts;
+}
+
+// NEED  — can't field a legal lineup yet.
+// OK    — starters covered, still worth adding flex-eligible depth.
+// LOW   — enough of this position; spend picks elsewhere.
+// LATE  — K/DEF, not urgent until the end of the draft.
+function needStatus(pos, counts) {
+  const { req, flex } = slotDemand(pos);
+  const have = counts[pos] || 0;
+  if (LATE_POS.includes(pos)) {
+    if (have >= req) return 'LOW';
+    return ls().myPicks.length < totalSlots(cfg()) - 2 ? 'LATE' : 'NEED';
+  }
+  if (have < req) return 'NEED';
+  // One backup beyond starters-plus-flex before a position is over-stocked.
+  if (have < req + flex + 1) return 'OK';
+  return 'LOW';
+}
+
+// The tier the next available player at this position sits in, and how many
+// of that tier are left. "RB tier 2 · 3 left" is the run warning.
+function posCliff(pos) {
+  const avail = players().filter(p => p.pos === pos && status(p.id) === 'available');
+  if (!avail.length) return null;
+  const tier = avail[0].tier;
+  return {
+    label: avail[0].deep ? 'deep pool' : `tier ${tier}`,
+    left: avail.filter(p => p.tier === tier).length,
+    deep: Boolean(avail[0].deep),
+  };
+}
+
+function pastCliff(p) {
+  if (!cfg().longTerm) return false;
+  const limit = AGE_CLIFF[p.pos];
+  const age = parseFloat(p.age);
+  return Boolean(limit) && Number.isFinite(age) && age >= limit;
+}
+
+// Top available player at each position the roster actually still needs.
+function starIds(counts) {
+  const ids = new Set();
+  for (const pos of leaguePositions(cfg())) {
+    if (needStatus(pos, counts) !== 'NEED') continue;
+    // players() is rank-sorted, so the first match is the best available.
+    const top = players().find(p => p.pos === pos && status(p.id) === 'available');
+    if (top) ids.add(top.id);
+  }
+  return ids;
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderLeagueSelect() {
+  const sel = document.getElementById('league-select');
+  sel.innerHTML = LEAGUE_ORDER.map(id =>
+    `<option value="${id}" ${id === S.activeLeague ? 'selected' : ''}>${esc(LEAGUES[id].name)}</option>`
+  ).join('');
+}
+
+function renderFilters() {
+  const positions = leaguePositions(cfg());
+  const buttons = [
+    `<button class="fbtn ${S.filter === 'ALL' ? 'active' : ''}" data-pos="ALL">All</button>`,
+    ...positions.map(p =>
+      `<button class="fbtn ${S.filter === p ? 'active' : ''}" data-pos="${p}">${p}</button>`
+    ),
+  ];
+  document.getElementById('filters').innerHTML = buttons.join('');
+}
+
+function renderSidebar() {
+  const map = filledBySlot();
+  const L = ls();
+  const total = totalSlots(cfg());
+  let html = '';
+  let lastSection = null;
+
+  for (const sd of cfg().slots) {
+    if (sd.section !== lastSection) {
+      html += `<div class="roster-section-label">${sd.section}</div>`;
+      lastSection = sd.section;
+    }
+    const players = map[sd.id] || [];
+    for (let i = 0; i < sd.count; i++) {
+      const p = players[i];
+      const label = sd.count > 1 ? `${sd.label}${i + 1}` : sd.label;
+      if (p) {
+        const pc = p.pos.toLowerCase().replace(/[^a-z]/g, '');
+        html += `
+          <div class="roster-slot filled">
+            <span class="slot-label">${esc(label)}</span>
+            <div class="slot-content">
+              <span class="pbadge ${pc}" style="font-size:10px;padding:1px 5px">${esc(p.pos)}</span>
+              <span class="slot-name">${esc(p.name)}</span>
+            </div>
+            <button class="slot-remove" onclick="removeMyPick(${p.id})" title="Remove">✕</button>
+          </div>`;
+      } else {
+        html += `
+          <div class="roster-slot">
+            <span class="slot-label">${label}</span>
+            <span class="slot-empty">—</span>
+          </div>`;
+      }
+    }
+  }
+
+  document.getElementById('roster-scroll').innerHTML = html;
+  document.getElementById('pick-count').textContent = L.myPicks.length;
+  document.getElementById('pick-total-label').textContent = `/ ${total} roster spots`;
+  document.getElementById('roster-btn').textContent = `☰ My Team (${L.myPicks.length})`;
+}
+
+// Mobile drawer. On desktop the sidebar is always visible and this is a no-op.
+function toggleRoster(force) {
+  const open = force === undefined ? !document.body.classList.contains('roster-open') : force;
+  document.body.classList.toggle('roster-open', open);
+}
+
+function renderNeeds() {
+  const bar = document.getElementById('needs-bar');
+  document.body.classList.toggle('no-insights', !S.insights);
+  if (!S.insights || players().length === 0) {
+    bar.classList.remove('visible');
+    bar.innerHTML = '';
+    return;
+  }
+  const counts = myPosCounts();
+  bar.innerHTML = leaguePositions(cfg()).map(pos => {
+    const { req } = slotDemand(pos);
+    const have = counts[pos] || 0;
+    const st = needStatus(pos, counts);
+    const cliff = posCliff(pos);
+    const pc = pos.toLowerCase();
+    const cliffHtml = cliff
+      ? `<div class="need-cliff ${!cliff.deep && cliff.left <= 3 ? 'thin' : ''}">${cliff.label} ·
+           <strong>${cliff.left}</strong> left</div>`
+      : `<div class="need-cliff">none left</div>`;
+    return `
+      <div class="need-cell ${st === 'LATE' || st === 'LOW' ? 'dim' : ''}">
+        <div class="need-top">
+          <span class="need-pos ${pc}">${pos}</span>
+          <span class="need-have">${have}</span>
+          <span class="need-req">/ ${req}</span>
+          <span class="need-tag ${st}">${st}</span>
+        </div>
+        ${cliffHtml}
+      </div>`;
+  }).join('');
+  bar.classList.add('visible');
+}
+
+function renderBoard() {
+  const list = document.getElementById('player-list');
+  const prevScroll = list.scrollTop;
+  const pool = players();
+
+  if (pool.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📋</div>
+        <h3>Upload a rankings CSV for ${esc(cfg().name)}</h3>
+        <p>Each league uses its own rankings — click "Upload CSV" above.</p>
+        <br>
+        <button class="btn btn-upload" onclick="document.getElementById('csv-input').click()">Upload CSV</button>
+      </div>`;
+    document.getElementById('count-bar').classList.remove('visible');
+    return;
+  }
+
+  const { filter, hideTaken, search } = S;
+  const visible = pool.filter(p => {
+    if (filter !== 'ALL' && p.pos !== filter) return false;
+    if (hideTaken && status(p.id) !== 'available') return false;
+    if (search &&
+        !p.name.toLowerCase().includes(search) &&
+        !String(p.team).toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  const bar = document.getElementById('count-bar');
+  bar.classList.add('visible');
+  document.getElementById('ct-shown').textContent  = visible.length;
+  document.getElementById('ct-avail').textContent  = pool.filter(p => status(p.id) === 'available').length;
+  document.getElementById('ct-taken').textContent  = ls().taken.length;
+  document.getElementById('ct-mine').textContent   = ls().myPicks.length;
+
+  let html = `
+    <div class="board-header">
+      <span style="text-align:right">Rank</span>
+      <span>Pos</span>
+      <span>Pos Rank</span>
+      <span>Name</span>
+      <span style="text-align:center">Team</span>
+      <span style="text-align:right">Age</span>
+      <span></span>
+    </div>`;
+
+  const counts = myPosCounts();
+  const stars  = S.insights ? starIds(counts) : new Set();
+  // Tier separators only make sense in a single-position view — in the "All"
+  // board the tiers of six positions interleave, so rows get a chip instead.
+  const showTierHeads = S.insights && S.filter !== 'ALL';
+  const tierCounts = {};
+  if (showTierHeads) for (const p of visible) tierCounts[p.tier] = (tierCounts[p.tier] || 0) + 1;
+  let lastTier = null;
+
+  for (const p of visible) {
+    const st  = status(p.id);
+    const pc  = p.pos.toLowerCase().replace(/[^a-z]/g, '');
+    const rc  = st === 'mine' ? 'player-row mine' : st === 'taken' ? 'player-row taken' : 'player-row';
+
+    if (showTierHeads && p.tier !== lastTier) {
+      lastTier = p.tier;
+      const n = tierCounts[p.tier];
+      html += `
+        <div class="tier-head">
+          <span>${esc(p.pos)} ${p.deep ? 'Deep pool' : 'Tier ' + p.tier}</span>
+          <span class="tcount">${n} player${n === 1 ? '' : 's'}</span>
+        </div>`;
+    }
+
+    let actions = '';
+    if (st === 'available') {
+      actions = `
+        <button class="abtn abtn-mine"  onclick="addMyPick(${p.id})">Mine</button>
+        <button class="abtn abtn-taken" onclick="markTaken(${p.id})">Taken</button>`;
+    } else if (st === 'mine') {
+      actions = `
+        <span class="status-badge badge-mine">✓ Mine</span>
+        <button class="abtn abtn-undo" onclick="removeMyPick(${p.id})">Undo</button>`;
+    } else {
+      actions = `
+        <span class="status-badge badge-taken">✗ Taken</span>
+        <button class="abtn abtn-undo" onclick="undoTaken(${p.id})">Undo</button>`;
+    }
+
+    html += `
+      <div class="${rc}">
+        <span class="orank">#${p.rank}</span>
+        <span class="pbadge ${pc}">${esc(p.pos)}</span>
+        <span class="prank">${esc(p.pos)}${p.posRank}${
+          S.insights && !showTierHeads ? `<span class="tchip">${p.deep ? 'D' : 'T' + p.tier}</span>` : ''
+        }</span>
+        <span class="pname">${
+          stars.has(p.id) ? '<span class="star" title="Best available at a position you still need">★</span>' : ''
+        }${esc(p.name)}</span>
+        <span class="pteam">${esc(p.team)}</span>
+        <span class="page ${S.insights && pastCliff(p) ? 'cliff' : ''}"${
+          S.insights && pastCliff(p) ? ` title="Past the dynasty age cliff for ${esc(p.pos)} (${AGE_CLIFF[p.pos]})"` : ''
+        }>${esc(p.age)}</span>
+        <div class="row-actions">${actions}</div>
+      </div>`;
+  }
+
+  list.innerHTML = html;
+  list.scrollTop = prevScroll;
+}
+
+function render() {
+  renderLeagueSelect();
+  renderFilters();
+  renderSidebar();
+  renderNeeds();
+  renderBoard();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// EVENT HANDLERS
+// ─────────────────────────────────────────────────────────────────
+document.getElementById('csv-input').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const L = ls();
+  if ((L.myPicks.length || L.taken.length) &&
+      !confirm(`Loading a new CSV for "${cfg().name}" will reset its draft picks. Other leagues are untouched. Continue?`)) {
+    this.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    L.csvText = ev.target.result;
+    L.csvName = file.name;
+    L.players = parseCSV(L.csvText);
+    L.warn    = lastParse;
+    L.taken   = [];
+    L.myPicks = [];
+    if (L.players.length === 0) {
+      alert('No players found in that file. Expected CSV columns: Rank, Name, Team, Pos, Age.');
+    }
+    saveLeagueCSV(S.activeLeague);
+    saveLeague(S.activeLeague);
+    render();
+    updateCSVInfo();
+    document.getElementById('player-list').scrollTop = 0;
+  };
+  reader.onerror = () => {
+    alert('Could not read that file. Please try again.');
+  };
+  reader.readAsText(file);
+  this.value = '';
+});
+
+function updateCSVInfo() {
+  const L = ls();
+  const info = document.getElementById('csv-info');
+  if (L.players.length > 0) {
+    const name = L.csvName ? `${L.csvName} ` : '';
+    info.textContent = `✓ ${name}(${L.players.length} players)`;
+    info.className = 'csv-info ok';
+  } else {
+    info.textContent = 'No CSV loaded for this league';
+    info.className = 'csv-info';
+  }
+
+  const w = L.warn || {};
+  const parts = [];
+  if (w.skipped) parts.push(`${w.skipped} row${w.skipped > 1 ? 's' : ''} skipped (no Pos)`);
+  if (w.unknownPos && w.unknownPos.length) {
+    parts.push(`unrecognized Pos: ${w.unknownPos.join(', ')}`);
+  }
+  const warnEl = document.getElementById('csv-warn');
+  if (parts.length) {
+    warnEl.textContent = `⚠ ${parts.join(' · ')}`;
+    warnEl.style.display = '';
+  } else {
+    warnEl.style.display = 'none';
+  }
+}
+
+document.getElementById('filters').addEventListener('click', e => {
+  const b = e.target.closest('.fbtn');
+  if (!b) return;
+  S.filter = b.dataset.pos;
+  renderBoard();
+  renderFilters();
+});
+
+document.getElementById('hide-taken').addEventListener('change', function() {
+  S.hideTaken = this.checked;
+  renderBoard();
+});
+
+document.getElementById('insights').addEventListener('change', function() {
+  S.insights = this.checked;
+  try { localStorage.setItem(INSIGHTS_KEY, S.insights ? '1' : '0'); } catch(e) {}
+  renderNeeds();
+  renderBoard();
+});
+
+document.getElementById('search').addEventListener('input', function() {
+  S.search = this.value.trim().toLowerCase();
+  renderBoard();
+});
+
+document.getElementById('league-select').addEventListener('change', function() {
+  S.activeLeague = this.value;
+  S.filter = 'ALL';
+  S.search = '';
+  document.getElementById('search').value = '';
+  toggleRoster(false);
+  saveActive();
+  render();
+  updateCSVInfo();
+  activateSleeperForLeague();
+  document.getElementById('player-list').scrollTop = 0;
+});
+
+function confirmReset() {
+  const L = ls();
+  if (!L.myPicks.length && !L.taken.length) return;
+  const live = SLEEPER.auto && sleeperConf();
+  const note = live ? ' Sleeper sync will be paused, or it would refill the board within seconds.' : '';
+  if (confirm(`Reset draft picks for "${cfg().name}"? Your CSV will remain loaded and other leagues are untouched.${note}`)) {
+    if (live) setSleeperAuto(false);
+    L.taken = [];
+    L.myPicks = [];
+    saveLeague(S.activeLeague);
+    render();
+  }
+}
+
+// Back to the empty "No CSV loaded" state for this league only —
+// drops the CSV and its picks, leaves other leagues alone.
+function confirmClearCSV() {
+  const L = ls();
+  if (!L.csvText && !L.players.length && !L.myPicks.length && !L.taken.length) return;
+  if (!confirm(`Clear the CSV and all draft picks for "${cfg().name}"? Other leagues are untouched.`)) return;
+  L.csvText = null;
+  L.csvName = null;
+  L.players = [];
+  L.warn    = null;
+  L.taken   = [];
+  L.myPicks = [];
+  saveLeagueCSV(S.activeLeague);
+  saveLeague(S.activeLeague);
+  S.filter = 'ALL';
+  S.search = '';
+  document.getElementById('search').value = '';
+  render();
+  updateCSVInfo();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// SLEEPER SYNC
+// ─────────────────────────────────────────────────────────────────
+// Reads a live draft from Sleeper's public API and applies every pick to the
+// board: your picks get slotted onto the roster, everyone else's get marked
+// taken. No login, and deliberately no auth token — the /v1 draft endpoints
+// are unauthenticated and answer with `Access-Control-Allow-Origin: *`, so the
+// page can call them straight from the browser. A Sleeper session token would
+// buy nothing here and is a credential to the whole account, so none is ever
+// asked for, stored or sent.
+//
+// Sync only ever *adds* information. It never takes a player off a roster you
+// filled by hand; a disagreement is reported in the panel as a conflict
+// instead, so one stale click can't quietly empty a slot mid-draft.
+const SLEEPER_API = 'https://api.sleeper.app/v1';
+const sleeperKey = id => `fantasy_draft_sleeper_${id}`;
+const SLEEPER_POLL_MS     = 6000;   // steady state, roughly a pick's length
+const SLEEPER_POLL_ERR_MS = 30000;  // back off once the network is unhappy
+const SLEEPER_TIMEOUT_MS  = 10000;
+
+let SLEEPER;
+function resetSleeperRuntime() {
+  const box = SLEEPER ? SLEEPER.box : null;   // an open panel outlives a reset
+  if (SLEEPER && SLEEPER.timer) clearTimeout(SLEEPER.timer);
+  SLEEPER = {
+    timer: null, busy: false, auto: false,
+    lastSync: null, error: null, errors: 0,
+    seen: 0, mine: 0, taken: 0, unmatched: [], conflicts: [],
+    box,
+    ui: { step: 'user', username: '', userId: null, drafts: [], err: null, busy: false },
+  };
+}
+resetSleeperRuntime();
+
+// ── config ──
+function sleeperConf(id) {
+  const L = LEAGUE_STATE[id || S.activeLeague];
+  return (L && L.sleeper) || null;
+}
+
+function loadSleeperConf(id) {
+  try {
+    const d = JSON.parse(localStorage.getItem(sleeperKey(id)) || 'null');
+    if (!d || !d.draftId) return null;
+    return {
+      draftId:    String(d.draftId),
+      userId:     d.userId ? String(d.userId) : null,
+      username:   d.username || '',
+      leagueName: d.leagueName || 'Sleeper draft',
+      mySlot:     d.mySlot != null ? Number(d.mySlot) : null,
+      auto:       d.auto !== false,
+    };
+  } catch (e) { return null; }
+}
+
+function saveSleeperConf(id) {
+  const conf = sleeperConf(id);
+  try {
+    if (conf) localStorage.setItem(sleeperKey(id), JSON.stringify(conf));
+    else localStorage.removeItem(sleeperKey(id));
+    clearSaveError();
+  } catch (e) { flagSaveError(e); }
+}
+
+// ── API ──
+// `fresh` is for the picks endpoint, which Sleeper serves through Cloudflare
+// with `s-maxage=300, stale-while-revalidate=300` — the edge will happily hand
+// back a five-minute-old pick list however often the page asks. A unique query
+// param misses that cache; `no-store` covers the browser's own layer.
+async function sleeperGet(path, fresh) {
+  const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const t = ctl ? setTimeout(() => ctl.abort(), SLEEPER_TIMEOUT_MS) : null;
+  const url = SLEEPER_API + path + (fresh ? (path.includes('?') ? '&' : '?') + '_=' + Date.now() : '');
+  try {
+    // No custom headers: a simple GET skips the CORS preflight entirely.
+    const r = await fetch(url, { cache: fresh ? 'no-store' : 'default', signal: ctl ? ctl.signal : undefined });
+    if (r.status === 404) throw new Error('not found on Sleeper');
+    if (r.status === 429) throw new Error('rate limited by Sleeper — slowing down');
+    if (!r.ok) throw new Error(`Sleeper returned ${r.status}`);
+    return await r.json();
+  } catch (e) {
+    if (e && e.name === 'AbortError') throw new Error('Sleeper timed out');
+    if (e instanceof TypeError) throw new Error('could not reach Sleeper (offline or blocked)');
+    throw e;
+  } finally { if (t) clearTimeout(t); }
+}
+
+const sleeperErr = e => (e && e.message) || String(e);
+
+// A pasted draft link (sleeper.com/draft/nfl/<id>) or a bare id.
+function parseDraftId(raw) {
+  const m = String(raw || '').match(/(\d{6,25})/);
+  return m ? m[1] : null;
+}
+
+// ── discovery ──
+// Username → user id → this season's leagues → each league's drafts. All
+// public endpoints. Falls back to last season so the picker isn't empty in
+// the offseason.
+async function sleeperFindDrafts(username) {
+  const user = await sleeperGet('/user/' + encodeURIComponent(username.trim()));
+  if (!user || !user.user_id) throw new Error(`no Sleeper user named "${username.trim()}"`);
+  const userId = String(user.user_id);
+
+  const state = await sleeperGet('/state/nfl').catch(() => null);
+  const seasons = [];
+  if (state && state.season) seasons.push(String(state.season));
+  if (state && state.previous_season) seasons.push(String(state.previous_season));
+  if (!seasons.length) seasons.push(String(new Date().getFullYear()));
+
+  const drafts = [];
+  for (const season of seasons) {
+    const leagues = await sleeperGet(`/user/${userId}/leagues/nfl/${season}`).catch(() => []);
+    for (const lg of (leagues || [])) {
+      const ds = await sleeperGet(`/league/${lg.league_id}/drafts`).catch(() => []);
+      for (const d of (ds || [])) {
+        drafts.push({
+          draftId:    String(d.draft_id),
+          leagueName: lg.name || 'League',
+          season,
+          status:     d.status || '',
+          type:       d.type || '',
+          teams:      (d.settings && d.settings.teams) || null,
+          mySlot:     (d.draft_order && d.draft_order[userId]) || null,
+          start:      d.start_time || 0,
+        });
+      }
+    }
+    if (drafts.length) break;   // don't mix this season with last
+  }
+  drafts.sort((a, b) => (b.start || 0) - (a.start || 0));
+  return { userId, username: user.username || username.trim(), drafts };
+}
+
+// Connecting straight to a draft id — used for the paste-a-link path, and to
+// re-read draft_order so "mine" detection survives an autopicked pick.
+async function sleeperLoadDraft(draftId, userId) {
+  const d = await sleeperGet('/draft/' + encodeURIComponent(draftId));
+  if (!d || !d.draft_id) throw new Error('no draft with that id');
+  return {
+    draftId:    String(d.draft_id),
+    leagueName: (d.metadata && d.metadata.name) || 'Sleeper draft',
+    season:     d.season || '',
+    status:     d.status || '',
+    type:       d.type || '',
+    teams:      (d.settings && d.settings.teams) || null,
+    mySlot:     (userId && d.draft_order && d.draft_order[userId]) || null,
+  };
+}
+
+// ── matching Sleeper players to the rankings CSV ──
+// Every pick carries a `metadata` blob with the player's name, position and
+// team, so the board never has to download Sleeper's multi-megabyte player
+// dump. Names still have to be reconciled: rankings files and Sleeper disagree
+// about punctuation, accents and generational suffixes.
+const NAME_SUFFIXES = /\b(jr|sr|ii|iii|iv|v)\b/g;
+
+function normName(s) {
+  return String(s || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[.'’`,]/g, '')
+    .replace(/[-]/g, ' ')
+    .replace(NAME_SUFFIXES, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function buildNameIndex(pool) {
+  const idx = new Map();
+  for (const p of pool) {
+    const k = normName(p.name);
+    if (!idx.has(k)) idx.set(k, []);
+    idx.get(k).push(p);
+  }
+  return idx;
+}
+
+function matchSleeperPick(pk, idx, pool) {
+  const m = pk.metadata || {};
+  const pos  = normalizePos(m.position || '');
+  const team = String(m.team || '').toUpperCase();
+
+  // Defenses: Sleeper names them by city and nickname while rankings files
+  // usually use the team abbreviation, so match on the team instead.
+  if (pos === 'DEF') {
+    const abbr = team || String(pk.player_id || '').toUpperCase();
+    let hit = pool.filter(p => p.pos === 'DEF' && String(p.team).toUpperCase() === abbr);
+    if (!hit.length) {
+      // Some rankings files leave Team blank for defenses, so fall back to the
+      // nickname: "Eagles" inside "Philadelphia Eagles D/ST".
+      const nick = normName(m.last_name);
+      if (nick) hit = pool.filter(p => p.pos === 'DEF' && normName(p.name).includes(nick));
+    }
+    if (hit.length) return hit[0];
+  }
+
+  let cands = idx.get(normName(`${m.first_name || ''} ${m.last_name || ''}`)) || [];
+  if (cands.length > 1 && pos) {
+    const byPos = cands.filter(p => p.pos === pos);
+    if (byPos.length) cands = byPos;
+  }
+  if (cands.length > 1 && team) {
+    const byTeam = cands.filter(p => String(p.team).toUpperCase() === team);
+    if (byTeam.length) cands = byTeam;
+  }
+  // Still ambiguous means two same-name, same-position players; the pool is
+  // rank-sorted, so the first is the better guess.
+  return cands[0] || null;
+}
+
+function sleeperPickLabel(pk) {
+  const m = pk.metadata || {};
+  const name = `${m.first_name || ''} ${m.last_name || ''}`.trim() || `player ${pk.player_id}`;
+  const bits = [m.position, m.team].filter(Boolean).join(' · ');
+  return `${pk.pick_no ? '#' + pk.pick_no + ' ' : ''}${name}${bits ? ` (${bits})` : ''}`;
+}
+
+function sleeperIsMine(pk, conf) {
+  if (conf.userId && pk.picked_by) return String(pk.picked_by) === conf.userId;
+  // Autopicked and commissioner-entered picks come back with an empty
+  // picked_by, so fall back to the draft slot recorded at connect time.
+  if (conf.mySlot != null && pk.draft_slot != null) return Number(pk.draft_slot) === conf.mySlot;
+  return false;
+}
+
+// ── applying picks ──
+function applySleeperPicks(picks, conf) {
+  const L = ls();
+  SLEEPER.seen = picks.length;
+  if (!L.players.length) throw new Error('no CSV loaded for this league');
+
+  const idx = buildNameIndex(L.players);
+  const unmatched = [], conflicts = [];
+  let changed = false, mine = 0, taken = 0;
+
+  for (const pk of picks) {
+    const p = matchSleeperPick(pk, idx, L.players);
+    if (!p) { unmatched.push(sleeperPickLabel(pk)); continue; }
+    const st = status(p.id);
+
+    if (sleeperIsMine(pk, conf)) {
+      mine++;
+      if (st === 'mine') continue;
+      const reason = slotMyPick(p.id);
+      if (reason) conflicts.push(`${p.name} — ${reason}`);
+      else changed = true;
+    } else {
+      taken++;
+      if (st === 'taken') continue;
+      if (st === 'mine') {
+        conflicts.push(`${p.name} — on your roster here, but Sleeper has someone else drafting them`);
+        continue;
+      }
+      L.taken.push(p.id);
+      changed = true;
+    }
+  }
+
+  SLEEPER.mine = mine;
+  SLEEPER.taken = taken;
+  SLEEPER.unmatched = unmatched;
+  SLEEPER.conflicts = conflicts;
+  if (changed) { saveLeague(S.activeLeague); render(); }
+}
+
+// ── polling ──
+function scheduleSleeper() {
+  if (SLEEPER.timer) { clearTimeout(SLEEPER.timer); SLEEPER.timer = null; }
+  if (!SLEEPER.auto || !sleeperConf()) return;
+  SLEEPER.timer = setTimeout(sleeperSync, SLEEPER.errors ? SLEEPER_POLL_ERR_MS : SLEEPER_POLL_MS);
+}
+
+async function sleeperSync() {
+  const conf = sleeperConf();
+  if (!conf || SLEEPER.busy) return;
+  const league = S.activeLeague;   // a league switch mid-flight must not apply
+  SLEEPER.busy = true;
+  renderSleeperUI();
+  try {
+    const picks = await sleeperGet(`/draft/${encodeURIComponent(conf.draftId)}/picks`, true);
+    if (S.activeLeague !== league) return;
+    if (!Array.isArray(picks)) throw new Error('unexpected response from Sleeper');
+    applySleeperPicks(picks, conf);
+    SLEEPER.error = null;
+    SLEEPER.errors = 0;
+    SLEEPER.lastSync = Date.now();
+  } catch (e) {
+    if (S.activeLeague === league) { SLEEPER.error = sleeperErr(e); SLEEPER.errors++; }
+  } finally {
+    SLEEPER.busy = false;
+    if (S.activeLeague === league) { renderSleeperUI(); scheduleSleeper(); }
+  }
+}
+
+function setSleeperAuto(on) {
+  const conf = sleeperConf();
+  SLEEPER.auto = !!on && !!conf;
+  if (conf) { conf.auto = SLEEPER.auto; saveSleeperConf(S.activeLeague); }
+  if (SLEEPER.auto) sleeperSync(); else { scheduleSleeper(); renderSleeperUI(); }
+}
+
+// Called on load and on every league switch: pick up that league's config and
+// start or stop polling to match it.
+function activateSleeperForLeague() {
+  resetSleeperRuntime();
+  const conf = sleeperConf();
+  if (conf && conf.auto) { SLEEPER.auto = true; sleeperSync(); }
+  renderSleeperUI();
+}
+
+function disconnectSleeper() {
+  if (!confirm(`Stop syncing "${cfg().name}" with Sleeper? Picks already on the board stay.`)) return;
+  const L = ls();
+  delete L.sleeper;
+  saveSleeperConf(S.activeLeague);
+  resetSleeperRuntime();
+  renderSleeperUI();
+}
+
+// ── UI ──
+function relTime(ts) {
+  if (!ts) return 'never';
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 5) return 'just now';
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.round(s / 60)}m ago`;
+  return `${Math.round(s / 3600)}h ago`;
+}
+
+function renderSleeperStatus() {
+  const pill = document.getElementById('sleeper-pill');
+  if (!pill) return;
+  const conf = sleeperConf();
+  if (!conf) { pill.style.display = 'none'; return; }
+  pill.style.display = '';
+  if (SLEEPER.error) {
+    pill.className = 'sleeper-pill err';
+    pill.textContent = `⚠ Sleeper: ${SLEEPER.error}`;
+  } else {
+    pill.className = 'sleeper-pill' + (SLEEPER.auto ? ' live' : '');
+    pill.textContent = `${SLEEPER.auto ? '● live' : '○ paused'} · ${SLEEPER.seen} picks`;
+  }
+  pill.title = `${conf.leagueName} — last sync ${relTime(SLEEPER.lastSync)}. Click ⇄ Sleeper for details.`;
+}
+
+function renderSleeperUI() {
+  renderSleeperStatus();
+  if (SLEEPER.box && document.body.contains(SLEEPER.box)) renderSleeperBox();
+}
+
+function openSleeper() {
+  const back = document.createElement('div');
+  back.className = 'export-back';
+  back.innerHTML = '<div class="export-box sleeper-box"></div>';
+  SLEEPER.box = back;
+
+  const close = () => { back.remove(); SLEEPER.box = null; };
+  back.onclick = e => { if (e.target === back) close(); };
+  document.addEventListener('keydown', function esc(e) {
+    if (e.key !== 'Escape') return;
+    close();
+    document.removeEventListener('keydown', esc);
+  });
+
+  const conf = sleeperConf();
+  SLEEPER.ui = { step: 'user', username: (conf && conf.username) || '', userId: (conf && conf.userId) || null,
+                 drafts: [], err: null, busy: false };
+  document.body.appendChild(back);
+  renderSleeperBox();
+}
+
+function renderSleeperBox() {
+  const box = SLEEPER.box && SLEEPER.box.querySelector('.sleeper-box');
+  if (!box) return;
+  const conf = sleeperConf();
+  const u = SLEEPER.ui;
+  const active = document.activeElement;
+  const focusId = active && box.contains(active) ? active.id : null;
+  const caret = focusId && active.setSelectionRange ? active.selectionStart : null;
+
+  const head = `
+    <div class="export-head">
+      <span>Sleeper sync — ${esc(cfg().name)}</span>
+      <button class="btn" data-close>✕ Close</button>
+    </div>`;
+
+  let body;
+  if (conf) {
+    const lines = [];
+    if (SLEEPER.conflicts.length) {
+      lines.push(`<div class="sl-list warn"><strong>${SLEEPER.conflicts.length} conflict${SLEEPER.conflicts.length > 1 ? 's' : ''}</strong> — left for you to settle by hand:<ul>${
+        SLEEPER.conflicts.slice(0, 12).map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>`);
+    }
+    if (SLEEPER.unmatched.length) {
+      lines.push(`<div class="sl-list"><strong>${SLEEPER.unmatched.length} pick${SLEEPER.unmatched.length > 1 ? 's' : ''} not on this board</strong> — drafted on Sleeper but absent from the rankings CSV, so nothing to mark:<ul>${
+        SLEEPER.unmatched.slice(0, 12).map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>`);
+    }
+    body = `
+      <div class="sl-grid">
+        <span>Draft</span><span>${esc(conf.leagueName)} <span class="sl-dim">· ${esc(conf.draftId)}</span></span>
+        <span>You</span><span>${conf.username ? esc(conf.username) : '<span class="sl-dim">not identified</span>'}${
+          conf.mySlot != null ? ` <span class="sl-dim">· draft slot ${conf.mySlot}</span>` : ''}</span>
+        <span>Picks seen</span><span>${SLEEPER.seen} <span class="sl-dim">· ${SLEEPER.mine} yours, ${SLEEPER.taken} others</span></span>
+        <span>Last sync</span><span>${SLEEPER.busy ? 'syncing…' : esc(relTime(SLEEPER.lastSync))}${
+          SLEEPER.error ? ` <span class="sl-err">— ${esc(SLEEPER.error)}</span>` : ''}</span>
+      </div>
+      ${!conf.userId ? '<div class="sl-note">No Sleeper user is linked, so every pick lands as <em>taken</em> — reconnect through the username field to have your own picks slotted onto the roster.</div>' : ''}
+      ${lines.join('')}
+      <div class="export-actions">
+        <button class="btn btn-upload" data-sync ${SLEEPER.busy ? 'disabled' : ''}>↻ Sync now</button>
+        <button class="btn" data-auto>${SLEEPER.auto ? '⏸ Pause live' : '▶ Go live'}</button>
+        <button class="btn" data-disconnect>✕ Disconnect</button>
+        <span class="export-note">${SLEEPER.auto ? `Checking every ${SLEEPER_POLL_MS / 1000}s.` : 'Polling paused.'} Sync never removes a player you added by hand.</span>
+      </div>`;
+  } else {
+    const list = u.drafts.length ? `
+      <label class="sl-label" for="sl-draft">Draft</label>
+      <select id="sl-draft" class="sl-input">${u.drafts.map(d =>
+        `<option value="${esc(d.draftId)}">${esc(d.leagueName)} — ${esc(d.season)}${d.status ? ' · ' + esc(d.status) : ''}${d.type ? ' · ' + esc(d.type) : ''}</option>`).join('')}</select>
+      <button class="btn btn-upload" data-connect>Connect</button>` : '';
+    body = `
+      <div class="sl-note">Pulls the live draft straight from Sleeper's public API. <strong>No login and no auth token</strong> — draft data is readable without one, so don't paste the token from dev tools here or anywhere else; it's a credential to your whole account.</div>
+      <label class="sl-label" for="sl-user">Sleeper username</label>
+      <div class="sl-row">
+        <input id="sl-user" class="sl-input" type="text" autocomplete="off" spellcheck="false" placeholder="your Sleeper handle" value="${esc(u.username)}">
+        <button class="btn" data-find ${u.busy ? 'disabled' : ''}>${u.busy ? 'Looking…' : 'Find drafts'}</button>
+      </div>
+      ${list}
+      <label class="sl-label" for="sl-id">Or paste a draft link / id</label>
+      <div class="sl-row">
+        <input id="sl-id" class="sl-input" type="text" autocomplete="off" spellcheck="false" placeholder="https://sleeper.com/draft/nfl/1234567890">
+        <button class="btn" data-connect-id ${u.busy ? 'disabled' : ''}>Connect</button>
+      </div>
+      ${u.err ? `<div class="sl-err">${esc(u.err)}</div>` : ''}
+      <div class="sl-note sl-dim">Enter the username too if you use the link — it's how the board tells your picks apart from everyone else's.</div>`;
+  }
+
+  box.innerHTML = head + body;
+  box.querySelector('[data-close]').onclick = () => { SLEEPER.box.remove(); SLEEPER.box = null; };
+
+  const on = (sel, fn) => { const el = box.querySelector(sel); if (el) el.onclick = fn; };
+  on('[data-sync]', () => sleeperSync());
+  on('[data-auto]', () => setSleeperAuto(!SLEEPER.auto));
+  on('[data-disconnect]', disconnectSleeper);
+  on('[data-find]', () => sleeperUiFind(box));
+  on('[data-connect]', () => {
+    const id = box.querySelector('#sl-draft').value;
+    const d = u.drafts.find(x => x.draftId === id);
+    if (d) sleeperUiConnect(d.draftId, d);
+  });
+  on('[data-connect-id]', () => sleeperUiConnectId(box));
+
+  for (const el of box.querySelectorAll('input')) {
+    el.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      if (el.id === 'sl-user') sleeperUiFind(box); else sleeperUiConnectId(box);
+    });
+  }
+  if (focusId) {
+    const el = box.querySelector('#' + focusId);
+    if (el) { el.focus(); if (caret != null && el.setSelectionRange) el.setSelectionRange(caret, caret); }
+  }
+}
+
+async function sleeperUiFind(box) {
+  const u = SLEEPER.ui;
+  u.username = box.querySelector('#sl-user').value.trim();
+  if (!u.username) { u.err = 'Enter your Sleeper username first.'; renderSleeperBox(); return; }
+  u.busy = true; u.err = null; u.drafts = []; renderSleeperBox();
+  try {
+    const res = await sleeperFindDrafts(u.username);
+    u.userId = res.userId;
+    u.username = res.username;
+    u.drafts = res.drafts;
+    if (!u.drafts.length) u.err = `No drafts found for "${u.username}". Paste the draft link below instead.`;
+  } catch (e) { u.err = sleeperErr(e); }
+  u.busy = false; renderSleeperBox();
+}
+
+async function sleeperUiConnectId(box) {
+  const u = SLEEPER.ui;
+  const raw = box.querySelector('#sl-id').value;
+  const id = parseDraftId(raw);
+  if (!id) { u.err = "That doesn't look like a draft link or id."; renderSleeperBox(); return; }
+  u.username = box.querySelector('#sl-user').value.trim();
+  u.busy = true; u.err = null; renderSleeperBox();
+  try {
+    // Resolve the username if one was typed, so "mine" detection works.
+    if (u.username && !u.userId) {
+      const user = await sleeperGet('/user/' + encodeURIComponent(u.username)).catch(() => null);
+      if (user && user.user_id) u.userId = String(user.user_id);
+    }
+    const d = await sleeperLoadDraft(id, u.userId);
+    sleeperUiConnect(d.draftId, d);
+  } catch (e) { u.err = sleeperErr(e); u.busy = false; renderSleeperBox(); }
+}
+
+function sleeperUiConnect(draftId, d) {
+  const u = SLEEPER.ui;
+  ls().sleeper = {
+    draftId,
+    userId:     u.userId || null,
+    username:   u.username || '',
+    leagueName: (d && d.leagueName) || 'Sleeper draft',
+    mySlot:     d && d.mySlot != null ? Number(d.mySlot) : null,
+    auto:       true,
+  };
+  saveSleeperConf(S.activeLeague);
+  resetSleeperRuntime();
+  SLEEPER.auto = true;
+  sleeperSync();
+  renderSleeperBox();
+}
+
+// ─────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────
+function init() {
+  loadAll();
+  document.getElementById('hide-taken').checked = S.hideTaken;
+  document.getElementById('insights').checked = S.insights;
+  render();
+  updateCSVInfo();
+  activateSleeperForLeague();
+}
+
+init();
+</script>
+</body>
+</html>
